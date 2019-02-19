@@ -1,0 +1,172 @@
+---
+title: "HW3_Roser"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+##Question 1: What is the effect of cut quality on diamond price? 
+
+The effect of each cut on diamond price is as follows:
+From a Fair to Good cut diamond, the price decreases by an average of 429 dollars. From a Fair to a Very Good cut diamond, the price decreases by an average of 377 dollars. From a Fair to Ideal cut diamond, the price decreased by an average of 901 dollars. From a Fair to Premium cut diamond, the price increased by an average 225 dollars. You only care about the effect of cut on price of diamonds, the only cut worthwhile is premium. 
+There's a signficant difference in the effect of cut on diamond price because none of the confidence intervals cross zero. 
+
+```{r diamond}
+
+#ggplot_shiny(diamond)
+
+diamond<-read_excel("diamond.xlsx")
+
+head(diamond)
+str(diamond)
+
+price_over_carat<-diamond$price/diamond$carat
+
+gem_mod<-glm(price ~ cut, data = diamond, family = "poisson")
+coef(gem_mod)
+exp(8.3799)  # $4358 is baseline for fair cut diamonds, 
+exp(8.3799-0.1038)-exp(8.3799) #fair compared to good 
+exp(8.3799-0.2316)-exp(8.3799) #fair compared to ideal 
+exp(8.3799+0.0504)-exp(8.3799) #fair compared to premium
+exp(8.3799-0.0906)-exp(8.3799) #fair compared to very good
+
+confint(gem_mod)  # all effects are significant 
+
+scatter_diamond<- ggplot(diamond, aes(x = carat, y = price, colour = cut)) +
+  geom_point() +
+  facet_grid( cut ~ . ) +
+  theme_bw()
+scatter_diamond
+
+boxplot(price~cut, data = diamond, xlab = "Diamond Cut", ylab = "Diamond Price $")
+boxplot(price_over_carat~cut, data = diamond, xlab = "Diamond Cut", ylab = "Diamond Price$/Carat")
+```
+
+## Question 2: Does education have an impact on contraception use?
+
+Women who have "high" education are on average 2% more likely to use contraception than women with "low" education. However, the CI intervals cross 0 so there's not a significant effect of education level on contraception use. 
+
+```{r}
+#cuse<-read.csv("homework3-master/contraception.csv")
+
+head(cuse)
+str(cuse)
+
+prop_using<-cuse$using/cuse$Total
+boxplot(prop_using~education, data = cuse, xlab = "Education Level", ylab = "Proportion of Women Using C")   #visualize data
+
+use_success<-cbind(cuse$using, cuse$notUsing)    #make response variable with both outcomes
+use_mod<-glm(use_success~cuse$education, family = "binomial")
+
+coef(use_mod)
+plogis(-0.8102 + 0.0924)-plogis(-0.8102)  #difference between total women who use contraception
+
+confint(use_mod)
+```
+
+## Question 3: Hurricanes and Himmicanes
+Based on my analysis of the deadliness of hurricanes vs himmicanes, I observed that there are on average 9 more deaths in hurricanes with female names than in hurricanes with male names. The 95% CI interval does not cross zero, from which we can infer a significant effect of himmicanes vs hurricanes and their respective deadliness. 
+
+I'm unsure as to how Jung et al could have provided more confidence in their analyses because I ran the same data through a negative binomial which showed no significant effect on average deaths between himmicanes and hurricanes. I believe this is because the poisson distribution which was used first does not accurately represent the large variance of the hurricane dataset. The negative binomial distribution is a better fit from this data because the variance is much greater than the mean. 
+
+```{r}
+library(MASS)
+#storm<-read.csv("homework3-master/Hurricane Dataset.csv")
+
+head(storm)
+
+boxplot(alldeaths~Gender_MF, data = storm)    #note extreme outlines in Female named hurricanes
+boxplot(alldeaths~Gender_MF, data = storm, ylim= c(0,50))  #visualize data--> close up on means
+
+storm_mod<-glm(alldeaths~Gender_MF, data = storm, family = "poisson")
+coef(storm_mod)
+
+exp(3.167-0.5123)-exp(3.167)  #on average there's 9 more deaths in hurricanes than himmicanes
+confint(storm_mod)
+
+#testing with negative rbinom
+storm_mod2<-glm.nb(alldeaths~Gender_MF, data = storm)
+coef(storm_mod2)
+confint(storm_mod2)  #shows the M/F is not significant effect on deaths--> poisson is nota good choice bc variance is not well represented for this data set. 
+
+```
+
+## Question 4: Dataset from Our Own Research: Shrub Counts
+
+The three shrub communities included are located at different elevations in Reynolds Creek Experimental Watershed; from low to high: Wyoming Big Sage, Low Sage, and Mountain Big Sage (2500ft to 7000ft). Site location has a significant effect on the density of shrubs; on average there's 10 more shrubs at a LOS plot than an MBS plot and 14 more at a LOS plot than WBS. In 2016, field crews also completed destructive above ground biomass sampling at each of these three sites. Site location also has a significant effect on the biomass of collected shrubs; we observe that on average, LOS plots have the least shrub biomass compared to WBS and MBS. 
+
+```{r}
+#shrub<-read.csv("homework3-master/shrub_edit.csv")
+head(shrub)
+str(shrub)
+
+shrub_mod<-glm(Count~Location, data = shrub, family = "poisson")
+coef(shrub_mod)
+
+exp(2.887-0.7701)-exp(2.887)   #comparison between LOS and MBS    On average there's 10 more shrubs in LOS plots than MBS plots
+exp(2.887-1.5063)-exp(2.887)   #comparison between LOS and WBS    On average there's 14 more shrubs in LOS plots than WBS plots
+exp(2.887-1.5063)-exp(2.887-0.7701) #comparison between WBS and MBS  On average there's 4 more shrubs in MBS plos than WBS plots
+
+confint(shrub_mod)  #Site location has a significant effect on the density of shrubs per 10m2
+
+#boxplot(Count~Location, data = shrub, xlab = "Shrub Community", ylab = "Shrub Count per 10m2")
+shrub_graph <- ggplot(shrub, aes(x = Location, y = Count, colour = Site)) +
+  geom_boxplot(notch = FALSE) +
+  labs(x = 'Shrub Community', y = 'Shrub Count/10m2') +
+  theme_bw()
+shrub_graph
+
+
+
+```
+
+### 2016 shrub biomass
+```{r}
+#bio<-read.csv("homework3-master/shrub_biomass_2016.csv")
+head(bio)
+str(bio)
+#ggplot_shiny(bio_edit)
+#boxplot(TotalBiomas~Location, data = bio, xlab = "Shrub Community", ylab = "Total Biomass (oven dry g)")
+
+#taking out an extreme outlier--> seems like data entry error bc dry shrubs don't weigh 27lbs
+bio_edit<-bio[-c(24),]
+
+biomass_graph <- ggplot(bio_edit, aes(x = Location, y = TotalBiomas, colour = SiteID)) +
+  geom_boxplot(notch = FALSE) +
+  labs(x = 'Shrub Community', y = 'Average Total Biomass (g)') +
+  theme_bw()
+biomass_graph
+
+bio_mod<-glm(TotalBiomas~Location, data = bio_edit, family = "Gamma")
+coef(bio_mod)
+confint(bio_mod)
+
+#Compare averages of biomass per 10m2 plot--> which sites have the most biomass? Least? 
+
+```
+
+
+```{r}
+#wbs<-read.csv("Veg_2018_WBS_NestedOnly.csv")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
